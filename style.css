@@ -1,0 +1,99 @@
+body {
+    padding-top: 20px;
+}
+
+table {
+    margin-bottom: 30px;
+    margin-left: 20px;
+    border-collapse: collapse;
+}
+
+th {
+    padding: 20px;
+    box-sizing: border-box;
+    border: 3px solid #3c00ff;
+    background-color: #09e1f1;
+}
+
+td {
+    padding: 20px;
+    box-sizing: border-box;
+    border: 3px solid #009e0d;
+    background-color: #8aff9f;
+}
+
+img {
+    width: 300px;
+}
+
+input,
+select {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.del {
+    cursor: pointer;
+    padding: 10px;
+    background-color: #ff0000;
+    font-weight: bold;
+}
+
+.edit {
+    cursor: pointer;
+    padding: 10px;
+    background-color: #c8ff00;
+    font-weight: bold;
+    width: 100%;
+}
+
+.create {
+    margin-bottom: 10px;
+    margin-left: 20px;
+    cursor: pointer;
+    padding: 10px;
+    background-color: #11b136d1;
+    font-weight: bold;
+}
+
+.modal-container {
+    z-index: 10;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: 0.5s;
+}
+
+.modal-container.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.overlay {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal {
+    position: relative;
+    z-index: 2;
+    background-color: #ffffff;
+    border-radius: 3px;
+    max-width: 300px;
+    margin: 60px auto;
+    padding: 40px;
+}
+
+input {
+    width: 100%;
+}

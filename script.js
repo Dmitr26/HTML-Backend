@@ -2,7 +2,10 @@
 
 // Function for removing elements from a table
 
-function deleteItem(id, config) {
+function deleteItem(event, config) {
+
+    let id = event.target.getAttribute("data-id");
+
     fetch(config.apiUrl + "/" + id, {
         method: 'DELETE'
     })
@@ -19,8 +22,7 @@ function deleteItem(id, config) {
 
 async function DataTable(config) {
 
-    const data = [];
-    let keys = [];
+    const data = {};
 
     const getContainer = document.querySelector(config.parent).parentNode;
     const regex = /\bmodal-container\b/i;
@@ -28,11 +30,14 @@ async function DataTable(config) {
     try {
         const fetchData = await fetch(config.apiUrl);
         const response = await fetchData.json();
-        keys = Object.keys(response.data);
-        for (let el of Object.values(response.data)) {
-            data.push(el);
+        let keys = Object.keys(response.data);
+        let values = Object.values(response.data);
+
+        for (let i = 0; i < keys.length; i++) {
+            data[keys[i]] = values[i];
         }
-        drawTable(config, data, keys);
+
+        drawTable(config, data);
         if (getContainer.innerHTML.search(regex) === -1) {
             drawModal(config);
         }
@@ -43,25 +48,14 @@ async function DataTable(config) {
 
 // Function for drawing a table
 
-function drawTable(config, data, keys) {
+function drawTable(config, data) {
 
     const getParent = document.querySelector(config.parent);
+    getParent.innerHTML = "";
 
-    if (getParent.innerHTML) {
-        getParent.innerHTML = "";
-    }
+    // Creating the add button
 
-    const tableRows = Object.keys(data).length;
-
-    // Creating the button
-
-    let createButton = document.createElement('button');
-    createButton.classList.add("create");
-    createButton.textContent = "Додати";
-    createButton.addEventListener('click', () => {
-        openModal(config);
-    })
-    getParent.appendChild(createButton);
+    drawButton(getParent, "create", "Додати", openModal, [config]);
 
     // Creating the main table
 
@@ -77,14 +71,12 @@ function drawTable(config, data, keys) {
     let headNumber = document.createElement('th');
     headNumber.textContent = "№";
     headNumber.setAttribute("data-type", 'number');
-    headNumber.setAttribute("data-order", config.order);
     headRow.appendChild(headNumber);
 
     for (const column of config.columns) {
         let headCol = document.createElement('th');
         headCol.textContent = column.title;
         headCol.setAttribute("data-type", column.type);
-        headCol.setAttribute("data-order", config.order);
         headRow.appendChild(headCol);
     }
 
@@ -103,35 +95,28 @@ function drawTable(config, data, keys) {
     let tableBody = document.createElement('tbody');
     mainTable.appendChild(tableBody);
 
-    for (let i = 0; i < tableRows; i++) {
+    let count = 1;
+
+    for (let el of Object.keys(data)) {
         let row = document.createElement('tr');
         let number = document.createElement('td');
-        number.textContent = i + 1;
+        number.textContent = count++;
         row.appendChild(number);
 
         for (const column of config.columns) {
             let col = document.createElement('td');
-            col.innerHTML = typeof column.value === 'function' ? column.value(data[i]) : data[i][column.value];
+            col.innerHTML = typeof column.value === 'function' ? column.value(data[el]) : data[el][column.value];
             row.appendChild(col);
         }
 
         let deleteCol = document.createElement('td');
-        deleteCol.innerHTML = `<button class="del" data-id="${keys[i]}">Delete</button>`;
-
-        deleteCol.onclick = function (event) {
-            let id = event.target.getAttribute("data-id");
-            deleteItem(id, config);
-        };
+        drawOnclickButton(deleteCol, "del", "Delete", el, config, deleteItem);
         row.appendChild(deleteCol);
 
         let editCol = document.createElement('td');
-        editCol.innerHTML = `<button class="edit" data-id="${keys[i]}">Edit</button>`;
-
-        editCol.onclick = function (event) {
-            fetchForEdit(event, config);
-        };
-
+        drawOnclickButton(editCol, "edit", "Edit", el, config, fetchForEdit);
         row.appendChild(editCol);
+
         tableBody.appendChild(row);
     }
 }
@@ -155,46 +140,16 @@ function createModalForEditing(data, config, id) {
 
     // Creating a new modal window
 
+    drawModal(config);
     const getContainer = document.querySelector(config.parent).parentNode;
-
-    let createModalContainer = document.createElement('div');
-    createModalContainer.classList.add("modal-container");
-    getContainer.appendChild(createModalContainer);
-
-    let createOverlay = document.createElement('div');
-    createOverlay.classList.add("overlay");
-
-    createOverlay.addEventListener('click', () => {
-        closeModal(config);
-    })
-
-    createModalContainer.appendChild(createOverlay);
-
-    let createModal = document.createElement('div');
-    createModal.classList.add("modal");
-
-    for (const column of config.columns) {
-        if (column.input) {
-
-            if (Array.isArray(column.input)) {
-
-                for (let el of column.input) {
-                    createInputs(el, createModal);
-                }
-
-            } else {
-                createInputs(column.input, createModal);
-            }
-        }
-    }
-
-    createModalContainer.appendChild(createModal);
+    let containerList = getContainer.querySelectorAll(".modal-container");
+    let thisContainer = containerList[containerList.length - 1];
 
     // Adding data for editing to inputs
 
     let newData = data;
 
-    createModalContainer.querySelectorAll(".inpt").forEach(el => {
+    thisContainer.querySelectorAll(".inpt").forEach(el => {
         for (let key of Object.keys(newData)) {
             if (key == el.id) {
                 el.value = newData[key];
@@ -203,36 +158,27 @@ function createModalForEditing(data, config, id) {
         }
     });
 
-    createModalContainer.classList.add("active");
+    thisContainer.classList.add("active");
 
     // Registering all changes made by the user
 
-    createModalContainer.querySelectorAll(".inpt").forEach(el => {
+    thisContainer.querySelectorAll(".inpt").forEach(el => {
         el.addEventListener('input', function () {
-            if (el.type === 'number') {
-                newData[el.id] = +el.value;
-            } else {
-                newData[el.id] = el.value;
-            }
+            newData[el.id] = el.type === 'number' ? +el.value : el.value;
         });
     });
 
     // Passing data to the API and deleting the modal window
 
-    createModalContainer.querySelectorAll(".inpt").forEach(el => {
-        el.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                console.log(newData);
-                passData(config, newData, id);
-                createModalContainer.remove();
-            }
-        });
+    thisContainer.querySelector(".save").addEventListener('click', function () {
+        putData(config, newData, id);
+        thisContainer.remove();
     });
 
     // When you cancel changes and exit, the modal window is also removed
 
-    createModalContainer.querySelector(".overlay").addEventListener('click', () => {
-        createModalContainer.remove();
+    thisContainer.querySelector(".close").addEventListener('click', function () {
+        thisContainer.remove();
     });
 }
 
@@ -250,10 +196,6 @@ function drawModal(config) {
 
     let createOverlay = document.createElement('div');
     createOverlay.classList.add("overlay");
-
-    createOverlay.addEventListener('click', () => {
-        closeModal(config);
-    })
 
     createModalContainer.appendChild(createOverlay);
 
@@ -277,42 +219,15 @@ function drawModal(config) {
         }
     }
 
+    // Creating buttons for saving data and for closing the modal window
+
+    let createButtonSpace = document.createElement('div');
+    createButtonSpace.classList.add("button-space");
+    drawButton(createButtonSpace, "save", "Зберегти", getInputValues, [config, getContainer]);
+    drawButton(createButtonSpace, "close", "Закрити", closeModal, [config]);
+    createModal.appendChild(createButtonSpace);
+
     createModalContainer.appendChild(createModal);
-
-    // Transfer data when pressing the Enter key
-
-    getContainer.querySelectorAll(".inpt").forEach(el => {
-        el.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-
-                let dataToPass = {};
-                let valid = true;
-
-                getContainer.querySelectorAll(".inpt").forEach(input => {
-                    if (!input.value && input.required) {
-                        input.style.border = "2px solid red";
-                        valid = false;
-                    } else {
-                        input.style.border = "";
-
-                        if (input.type === 'number') {
-                            dataToPass[input.getAttribute('id')] = +input.value;
-                        } else {
-                            dataToPass[input.getAttribute('id')] = input.value;
-                        }
-                    }
-                })
-
-                if (valid) {
-                    passData(config, dataToPass);
-                    getContainer.querySelectorAll(".inpt").forEach(input => {
-                        input.value = "";
-                    })
-                }
-            }
-
-        });
-    });
 }
 
 // Function for creating input fields
@@ -354,46 +269,91 @@ function createInputs(el, parent) {
     }
 }
 
-// Function for passing data to API
-// If the element has an id, then it is already in the API - the program changes its contents
-// If the element does not have an id, then it is not in the API - the program adds it to the API
+// Function to get input field values
 
-function passData(config, data, id = -1) {
+function getInputValues(config, parent) {
+    let dataToPass = {};
+    let valid = true;
 
-    if (id > -1) {
-        fetch(config.apiUrl + "/" + id, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
+    parent.querySelectorAll(".inpt").forEach(input => {
+        if (!input.value && input.required) {
+            input.style.border = "2px solid red";
+            valid = false;
+        } else {
+            input.style.border = "";
+            dataToPass[input.getAttribute('id')] = input.type === 'number' ? +input.value : input.value;
+        }
+    })
+
+    if (valid) {
+        postData(config, dataToPass);
+        parent.querySelectorAll(".inpt").forEach(input => {
+            input.value = "";
         })
-            .then(response => {
-                return response.json();
-            })
-            .then(() => {
-                DataTable(config);
-                closeModal(config);
-            })
-            .catch(error => {
-                console.error(error);
-            });
-    } else {
-        fetch(config.apiUrl, {
-            method: "POST",
-            body: JSON.stringify(data)
-        })
-            .then(response => {
-                return response.json();
-            })
-            .then(() => {
-                DataTable(config);
-                closeModal(config);
-            })
-            .catch(error => {
-                console.error(error);
-            });
     }
+}
+
+// Function for adding data to API
+
+function postData(config, data) {
+    fetch(config.apiUrl, {
+        method: "POST",
+        body: JSON.stringify(data)
+    })
+        .then(response => {
+            return response.json();
+        })
+        .then(() => {
+            DataTable(config);
+            closeModal(config);
+        })
+        .catch(error => {
+            console.error(error);
+        });
+}
+
+// Function for changing the content of elements that already exist in the API
+
+function putData(config, data, id) {
+    fetch(config.apiUrl + "/" + id, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+        .then(response => {
+            return response.json();
+        })
+        .then(() => {
+            DataTable(config);
+            closeModal(config);
+        })
+        .catch(error => {
+            console.error(error);
+        });
+}
+
+// Function for creating buttons
+
+function drawButton(parent, className, textContent, clickFunction, args) {
+    let createButton = document.createElement('button');
+    createButton.classList.add(className);
+    createButton.textContent = textContent;
+    createButton.addEventListener('click', () => {
+        clickFunction(...args);
+    })
+    parent.appendChild(createButton);
+}
+
+// Function for creating onclick buttons
+
+function drawOnclickButton(parent, className, buttonText, id, config, functionName) {
+    parent.innerHTML = `<button class="${className}" data-id="${id}">${buttonText}</button>`;
+    parent.getElementsByClassName(className)[0].onclick = function (event) {
+        functionName(event, config);
+    };
+
 }
 
 // Function for opening a modal window
@@ -418,15 +378,16 @@ function getAge(date) {
     let result = "";
     let today = new Date();
     let birthDate = new Date(date);
-    let year = today.getFullYear() - birthDate.getFullYear();
 
-    if (year > 0) {
-        result = year + " year(-s)";
-    } else {
-        let month = today.getMonth() - birthDate.getMonth();
-        result = month + " month(-s)";
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+
+    if (months < 0) {
+        years -= 1;
+        months += 12;
     }
 
+    result = years + " year(-s), " + months + " month(-s)";
     return result;
 }
 
